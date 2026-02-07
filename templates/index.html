@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stage Manager App</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     <style>
         body { padding: 20px; }
         .cue-table { width: 100%; border-collapse: collapse; }
@@ -42,17 +43,8 @@
                     <th>Description</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for cue in cues %}
-                <tr class="{{ 'active-row' if cue.is_active else '' }}">
-                    <td>
-                        <a href="/cues/{{ cue.id }}/activate" role="button" class="contrast">GO</a>
-                    </td>
-                    <td><strong>{{ cue.number }}</strong></td>
-                    <td>{{ cue.department }}</td>
-                    <td>{{ cue.description }}</td>
-                </tr>
-                {% endfor %}
+            <tbody id="cue-table-body">
+                {% include 'partials/cue_rows.html' %}
             </tbody>
         </table>
     </main>

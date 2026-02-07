@@ -44,16 +44,16 @@ async def create_cue(
 # This was likely the issue. It must be at the same indentation level as the others.
 @app.get("/cues/{cue_id}/activate")
 async def activate_cue(
+    request: Request,  # We need 'request' for the template
     cue_id: int, 
     session: Session = Depends(get_session)
 ):
-    # 1. Turn off 'is_active' for ALL cues
+    # 1. Logic (Same as before)
     active_cues = session.exec(select(Cue).where(Cue.is_active == True)).all()
     for active_cue in active_cues:
         active_cue.is_active = False
         session.add(active_cue)
     
-    # 2. Turn on 'is_active' for the specific cue matching the ID
     cue_to_activate = session.get(Cue, cue_id)
     if cue_to_activate:
         cue_to_activate.is_active = True
@@ -61,9 +61,8 @@ async def activate_cue(
     
     session.commit()
     
-    # 3. Go back to the main page
-    return RedirectResponse(url="/", status_code=303)
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # 2. Re-fetch the updated list
+    cues = session.exec(select(Cue)).all()
+    
+    # 3. Return ONLY the table rows (we will create this template in a second)
+    return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
