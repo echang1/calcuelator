@@ -66,3 +66,23 @@ async def activate_cue(
     
     # 3. Return ONLY the table rows (we will create this template in a second)
     return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
+
+# --- ROUTE 4: Reset Show (Clear all active cues) ---
+@app.post("/reset")
+async def reset_show(
+    request: Request,
+    session: Session = Depends(get_session)
+):
+    # 1. Find all active cues and turn them off
+    active_cues = session.exec(select(Cue).where(Cue.is_active == True)).all()
+    for cue in active_cues:
+        cue.is_active = False
+        session.add(cue)
+    
+    session.commit()
+    
+    # 2. Re-fetch the clean list
+    cues = session.exec(select(Cue)).all()
+    
+    # 3. Return the updated (empty) table rows
+    return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})

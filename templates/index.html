@@ -17,6 +17,23 @@
         }
         /* Make the transition smooth */
         tr { transition: background-color 0.2s; }
+        .active-row {
+            background-color: #1b5e20 !important; /* Force Green */
+            color: white;
+            border-left: 10px solid #4CAF50; /* A visual marker on the left */
+        }
+        
+        /* Make the text HUGE for the active row */
+        .active-row td {
+            font-size: 1.5rem; /* 1.5x normal size */
+            padding: 20px 10px;
+        }
+        
+        /* Dim the rows that are NOT active to focus attention */
+        /* Note: This is a bit advanced CSS selector logic */
+        tbody:has(.active-row) tr:not(.active-row) {
+            opacity: 0.5;
+        }
     </style>
 </head>
 <body>
@@ -34,7 +51,14 @@
                 </div>
             </form>
         </article>
-
+        <div style="margin-bottom: 20px; text-align: right;">
+            <button 
+                hx-post="/reset" 
+                hx-target="#cue-table-body" 
+                class="secondary outline">
+                Reset Show / End of Night
+            </button>
+        </div>
         <table class="cue-table">
             <thead>
                 <tr>
@@ -48,5 +72,36 @@
             </tbody>
         </table>
     </main>
+    <script>
+        document.addEventListener('keydown', function(event) {
+            // Check if the key pressed is Spacebar
+            if (event.code === 'Space') {
+                
+                // Don't trigger if the user is typing in a text box!
+                if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                event.preventDefault(); // Stop the page from scrolling down
+
+                // 1. Find the currently active row
+                let activeRow = document.querySelector('.active-row');
+                
+                if (activeRow) {
+                    // If there is an active row, find the NEXT row
+                    let nextRow = activeRow.nextElementSibling;
+                    if (nextRow) {
+                        // Find the button inside the next row and click it
+                        let btn = nextRow.querySelector('button');
+                        if (btn) btn.click();
+                    }
+                } else {
+                    // If NO row is active (start of show), click the FIRST row's button
+                    let firstBtn = document.querySelector('tbody tr:first-child button');
+                    if (firstBtn) firstBtn.click();
+                }
+            }
+        });
+    </script>
 </body>
 </html>
