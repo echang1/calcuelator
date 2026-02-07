@@ -6,6 +6,7 @@
     <title>Stage Manager App</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
         body { padding: 20px; }
         .cue-table { width: 100%; border-collapse: collapse; }
@@ -53,7 +54,7 @@
         </article>
         <div style="margin-bottom: 20px; text-align: right;">
             <button 
-                hx-post="/reset" 
+                id="reset-btn"  hx-post="/reset" 
                 hx-target="#cue-table-body" 
                 class="secondary outline">
                 Reset Show / End of Night
@@ -62,10 +63,11 @@
         <table class="cue-table">
             <thead>
                 <tr>
+                    <th>GO</th>
                     <th>Cue #</th>
                     <th>Dept</th>
                     <th>Description</th>
-                </tr>
+                    <th>Action</th> </tr>
             </thead>
             <tbody id="cue-table-body">
                 {% include 'partials/cue_rows.html' %}
@@ -73,6 +75,7 @@
         </table>
     </main>
     <script>
+        // Spacebar event listener
         document.addEventListener('keydown', function(event) {
             // Check if the key pressed is Spacebar
             if (event.code === 'Space') {
@@ -88,18 +91,55 @@
                 let activeRow = document.querySelector('.active-row');
                 
                 if (activeRow) {
-                    // If there is an active row, find the NEXT row
+                    // If there is an active row, try to find the NEXT row
                     let nextRow = activeRow.nextElementSibling;
+                    
                     if (nextRow) {
-                        // Find the button inside the next row and click it
+                        // Scenario A: Standard Cue -> Click "GO" on next cue
                         let btn = nextRow.querySelector('button');
                         if (btn) btn.click();
+                    } else {
+                        // Scenario B: End of Show -> Click "Reset Show"
+                        // We need to give the reset button an ID to find it easily
+                        let resetBtn = document.getElementById('reset-btn');
+                        if (resetBtn) {
+                            if (confirm("End of Show? Resetting now.")) {
+                            resetBtn.click();
+                            }
+                        }
                     }
                 } else {
-                    // If NO row is active (start of show), click the FIRST row's button
+                    // Scenario C: Start of Show -> Click the FIRST row's button
                     let firstBtn = document.querySelector('tbody tr:first-child button');
                     if (firstBtn) firstBtn.click();
                 }
+            }
+        });
+        // Initialize SortableJS on the table body
+        htmx.onLoad(function(content) {
+            var sortable = document.querySelector("#cue-table-body");
+            if (sortable) {
+                new Sortable(sortable, {
+                    animation: 150,
+                    ghostClass: 'blue-background-class',
+                    // When the user drops a row:
+                    onEnd: function (evt) {
+                        // Get the list of IDs in their new order
+                        var itemEls = sortable.children;
+                        var orderedIds = [];
+                        for (var i = 0; i < itemEls.length; i++) {
+                            // We need to put the ID in the row HTML to read it here (see next step)
+                            orderedIds.push(itemEls[i].getAttribute('data-id'));
+                        }
+
+                        // Send the new order to the backend
+                        htmx.ajax('POST', '/reorder', {
+                            values: { ids: orderedIds },
+                            target: '#cue-table-body',
+                            swap: 'innerHTML'
+                        });
+                    }
+                });
             }
         });
     </script>

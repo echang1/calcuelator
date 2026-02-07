@@ -1,0 +1,26 @@
+<tr data-id="{{ cue.id }}" class="{{ 'active-row' if cue.is_active else '' }}">
+    <td>Editing...</td>
+
+    <td><input type="text" name="number" value="{{ cue.number }}"></td>
+    <td><input type="text" name="department" value="{{ cue.department }}"></td>
+    <td><input type="text" name="description" value="{{ cue.description }}"></td>
+
+    <td>
+        <button 
+            hx-put="/cues/{{ cue.id }}" 
+            hx-include="closest tr" 
+            hx-target="closest tr" 
+            hx-swap="outerHTML"
+            style="margin-right: 5px;">
+            💾
+        </button>
+
+        <button 
+            hx-get="/cues/{{ cue.id }}" 
+            hx-target="closest tr" 
+            hx-swap="outerHTML"
+            class="secondary outline">
+            ❌
+        </button>
+    </td>
+</tr>

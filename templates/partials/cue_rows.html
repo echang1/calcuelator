@@ -1,16 +1,3 @@
 {% for cue in cues %}
-<tr class="{{ 'active-row' if cue.is_active else '' }}">
-    <td>
-        <button 
-            hx-get="/cues/{{ cue.id }}/activate" 
-            hx-target="#cue-table-body" 
-            hx-swap="innerHTML"
-            class="contrast">
-            GO
-        </button>
-    </td>
-    <td><strong>{{ cue.number }}</strong></td>
-    <td>{{ cue.department }}</td>
-    <td>{{ cue.description }}</td>
-</tr>
+    {% include "partials/cue_row.html" %}
 {% endfor %}

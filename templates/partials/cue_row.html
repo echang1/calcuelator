@@ -1,0 +1,36 @@
+<tr data-id="{{ cue.id }}" class="{{ 'active-row' if cue.is_active else '' }}">
+    <td>
+        <button 
+            hx-get="/cues/{{ cue.id }}/activate" 
+            hx-target="#cue-table-body" 
+            hx-swap="innerHTML"
+            class="contrast">
+            GO
+        </button>
+    </td>
+
+    <td><strong>{{ cue.number }}</strong></td>
+    <td>{{ cue.department }}</td>
+    <td>{{ cue.description }}</td>
+
+    <td>
+        <button 
+            hx-get="/cues/{{ cue.id }}/edit" 
+            hx-target="closest tr" 
+            hx-swap="outerHTML"
+            class="secondary outline"
+            style="border: none; padding: 5px; margin-right: 5px;">
+            ✏️
+        </button>
+
+        <button 
+            hx-delete="/cues/{{ cue.id }}" 
+            hx-confirm="Are you sure?"
+            hx-target="closest tr" 
+            hx-swap="outerHTML"
+            class="secondary outline"
+            style="border: none; padding: 5px;">
+            🗑️
+        </button>
+    </td>
+</tr>
