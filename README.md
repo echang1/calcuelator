@@ -1,6 +1,6 @@
 # CalCUElator
 
-A simple web-based tool built to reduce the manual overhead of logistical organization for stage managers. 
+A web-based dynamic prompt book and calling console built to streamline the planning and coordination of live performance cues.
 
 This project was created to move beyond static paper cue sheets, providing a digital workspace to dynamically manage cue sequences, track show progress, and organize production data.
 
