@@ -17,8 +17,8 @@ This project is a FastAPI application. To run it locally, ensure you have a Pyth
 
 1. **Clone the repository:**
     ```bash
-    git clone <repo-url>
-    cd stage-manager-app
+    git clone https://github.com/echang1/calcuelator.git
+    cd calcuelator
     ```
 
 2. **Setup Environment:**
@@ -48,5 +48,6 @@ Once the server is running, the workflow is centered around show-specific cue li
 ## Changelog
 
 ### v0.1.0
-* **Initial Release:** * Established the core sequencing engine with support for multi-show relational data.
+* **Initial Release:** 
+    * Established the core sequencing engine with support for multi-show relational data.
     * Implemented interactive show execution and drag-and-drop reordering.
