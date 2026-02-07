@@ -9,6 +9,13 @@
         body { padding: 20px; }
         .cue-table { width: 100%; border-collapse: collapse; }
         th, td { padding: 10px; border-bottom: 1px solid #333; }
+        .active-row {
+            background-color: #1b5e20; /* Dark Green background */
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        /* Make the transition smooth */
+        tr { transition: background-color 0.2s; }
     </style>
 </head>
 <body>
@@ -37,7 +44,10 @@
             </thead>
             <tbody>
                 {% for cue in cues %}
-                <tr>
+                <tr class="{{ 'active-row' if cue.is_active else '' }}">
+                    <td>
+                        <a href="/cues/{{ cue.id }}/activate" role="button" class="contrast">GO</a>
+                    </td>
                     <td><strong>{{ cue.number }}</strong></td>
                     <td>{{ cue.department }}</td>
                     <td>{{ cue.description }}</td>

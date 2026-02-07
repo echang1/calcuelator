@@ -6,5 +6,6 @@ class Cue(SQLModel, table=True):
     number: str           # e.g., "1", "1.5", "A"
     description: str      # e.g., "House to Half", "Blackout"
     department: str       # "Lights", "Sound", "Deck"
+    is_active: bool = Field(default=False)
     
     # We will add status later, keeping it simple for now!
