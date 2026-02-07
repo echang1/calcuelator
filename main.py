@@ -1,186 +1,186 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response, Depends, Form
+from typing import List, Optional
+from fastapi import FastAPI, Request, Depends, Form, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select, func
 from database import create_db_and_tables, get_session
-from models import Cue
-from typing import List
+from models import Cue, Show  # Import Show as well
 
-# --- ROUTE 0: Lifespan Context Manager ---
-# This replaces @app.on_event("startup")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Create the database tables
     create_db_and_tables()
     yield
-    # Shutdown: (We don't need to do anything here yet)
 
-# Initialize the app with the lifespan
 app = FastAPI(lifespan=lifespan)
-
 templates = Jinja2Templates(directory="templates")
 
-# --- ROUTE 1: View Cues (Read) ---
-@app.get("/")
-async def read_root(request: Request, session: Session = Depends(get_session)):
-    # ORDER BY sequence
-    cues = session.exec(select(Cue).order_by(Cue.sequence)).all()
-    return templates.TemplateResponse("index.html", {"request": request, "cues": cues})
+# --- LOBBY ROUTES (Show Management) ---
 
-# --- ROUTE 2: Add a Cue (Create) ---
-@app.post("/cues")
-async def create_cue(
-    number: str = Form(...),
-    description: str = Form(...),
-    department: str = Form(...),
+@app.get("/")
+async def list_shows(request: Request, session: Session = Depends(get_session)):
+    """The new Homepage: Lists all shows."""
+    shows = session.exec(select(Show)).all()
+    return templates.TemplateResponse("shows.html", {"request": request, "shows": shows})
+
+@app.post("/shows")
+async def create_show(
+    name: str = Form(...), 
+    description: str = Form(None), 
     session: Session = Depends(get_session)
 ):
-    # 1. Find the highest current sequence number
-    # "SELECT MAX(sequence) FROM cue"
-    max_seq = session.exec(select(func.max(Cue.sequence))).one()
-    
-    # If the table is empty, start at 1. Otherwise, add 1 to the max.
-    new_seq = (max_seq or 0) + 1
-    
-    # 2. Create the cue with this sequence number
-    new_cue = Cue(
-        number=number, 
-        description=description, 
-        department=department,
-        sequence=new_seq  # <--- HERE
-    )
-    session.add(new_cue)
+    """Create a new show bucket."""
+    new_show = Show(name=name, description=description)
+    session.add(new_show)
     session.commit()
     return RedirectResponse(url="/", status_code=303)
 
-# --- ROUTE 3: Activate a Cue (Update) ---
-# This was likely the issue. It must be at the same indentation level as the others.
+@app.get("/shows/{show_id}/delete")
+async def delete_show(show_id: int, session: Session = Depends(get_session)):
+    """Delete a show and its cues."""
+    show = session.get(Show, show_id)
+    if show:
+        # Note: In a real app, use cascade delete. Here we rely on SQLModel relationships or manual cleanup.
+        # For simplicity, we just delete the show object.
+        session.delete(show)
+        session.commit()
+    return RedirectResponse(url="/", status_code=303)
+
+
+# --- SHOW CONTROL ROUTES (The Actual App) ---
+
+@app.get("/shows/{show_id}")
+async def enter_show(
+    request: Request, 
+    show_id: int, 
+    session: Session = Depends(get_session)
+):
+    """
+    This replaces the old root '/'. 
+    It loads the specific show and its cues.
+    """
+    show = session.get(Show, show_id)
+    if not show:
+        return RedirectResponse(url="/")
+        
+    # Get cues ONLY for this show, sorted by sequence
+    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
+    
+    return templates.TemplateResponse("index.html", {
+        "request": request, 
+        "cues": cues, 
+        "show": show  # Pass the show object so we can use show.id in templates
+    })
+
+# --- CUE MANAGEMENT (Updated to use show_id) ---
+
+@app.post("/shows/{show_id}/cues")
+async def create_cue(
+    show_id: int,
+    number: str = Form(...),
+    description: str = Form(...),
+    department: str = Form(...),
+    session: Session = Depends(get_session)
+):
+    # Calculate sequence relative to THIS show
+    # SELECT MAX(sequence) FROM cue WHERE show_id = X
+    max_seq = session.exec(
+        select(func.max(Cue.sequence)).where(Cue.show_id == show_id)
+    ).one()
+    
+    new_seq = (max_seq or 0) + 1
+    
+    new_cue = Cue(
+        number=number, description=description, department=department,
+        sequence=new_seq, show_id=show_id
+    )
+    session.add(new_cue)
+    session.commit()
+    # Redirect back to the specific show page
+    return RedirectResponse(url=f"/shows/{show_id}", status_code=303)
+
+# ... (Previous Action Routes: Activate, Reset, Delete, Reorder) ...
+# We need to update these to redirect correctly or filter correctly.
+
+# 1. Activate (Logic doesn't change much, but we need to ensure we return the right list)
 @app.get("/cues/{cue_id}/activate")
-async def activate_cue(
-    request: Request,  # We need 'request' for the template
-    cue_id: int, 
-    session: Session = Depends(get_session)
-):
-    # 1. Logic (Same as before)
-    active_cues = session.exec(select(Cue).order_by(Cue.sequence).where(Cue.is_active == True)).all()
-    for active_cue in active_cues:
-        active_cue.is_active = False
-        session.add(active_cue)
-    
-    cue_to_activate = session.get(Cue, cue_id)
-    if cue_to_activate:
-        cue_to_activate.is_active = True
-        session.add(cue_to_activate)
-    
-    session.commit()
-    
-    # 2. Re-fetch the updated list
-    cues = session.exec(select(Cue).order_by(Cue.sequence)).all()
-    
-    # 3. Return ONLY the table rows (we will create this template in a second)
-    return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
-
-# --- ROUTE 4: Reset Show (Clear all active cues) ---
-@app.post("/reset")
-async def reset_show(
-    request: Request,
-    session: Session = Depends(get_session)
-):
-    # 1. Find all active cues and turn them off
-    active_cues = session.exec(select(Cue).order_by(Cue.sequence).where(Cue.is_active == True)).all()
-    for cue in active_cues:
-        cue.is_active = False
-        session.add(cue)
-    
-    session.commit()
-    
-    # 2. Re-fetch the clean list
-    cues = session.exec(select(Cue).order_by(Cue.sequence)).all()
-    
-    # 3. Return the updated (empty) table rows
-    return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
-
-# --- ROUTE 5: Delete a Cue ---
-@app.delete("/cues/{cue_id}")
-async def delete_cue(
-    cue_id: int,
-    session: Session = Depends(get_session)
-):
-    # 1. Find the cue
+async def activate_cue(request: Request, cue_id: int, session: Session = Depends(get_session)):
+    # Get the cue to find out which show it belongs to
     cue = session.get(Cue, cue_id)
+    if not cue: return Response(status_code=404)
+    show_id = cue.show_id
+
+    # Deactivate all cues IN THIS SHOW
+    active_cues = session.exec(select(Cue).where(Cue.show_id == show_id).where(Cue.is_active == True)).all()
+    for c in active_cues:
+        c.is_active = False
+        session.add(c)
     
-    # 2. Delete it if it exists
+    # Activate target
+    cue.is_active = True
+    session.add(cue)
+    session.commit()
+    
+    # Return updated list for THIS show
+    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
+    return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
+
+# 2. Reset (Needs show_id)
+@app.post("/shows/{show_id}/reset")
+async def reset_show(request: Request, show_id: int, session: Session = Depends(get_session)):
+    active_cues = session.exec(select(Cue).where(Cue.show_id == show_id).where(Cue.is_active == True)).all()
+    for c in active_cues:
+        c.is_active = False
+        session.add(c)
+    session.commit()
+    
+    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
+    return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
+
+# 3. Delete (Same as before, logic is ID based so it's safe)
+@app.delete("/cues/{cue_id}")
+async def delete_cue(cue_id: int, session: Session = Depends(get_session)):
+    cue = session.get(Cue, cue_id)
     if cue:
         session.delete(cue)
         session.commit()
-    
-    # 3. Return an empty response. 
-    # HTMX will swap the target with "nothing", effectively removing it.
     return Response(status_code=200)
 
-# --- ROUTES 6-8: Inline Editing ---
-
-# 1. Get the Edit Form
+# 4. Edit Routes (Same as before)
 @app.get("/cues/{cue_id}/edit")
-async def get_edit_form(
-    request: Request,
-    cue_id: int,
-    session: Session = Depends(get_session)
-):
+async def get_edit_form(request: Request, cue_id: int, session: Session = Depends(get_session)):
     cue = session.get(Cue, cue_id)
     return templates.TemplateResponse("partials/cue_row_edit.html", {"request": request, "cue": cue})
 
-# 2. Cancel Edit (Get Single Read-Only Row)
 @app.get("/cues/{cue_id}")
-async def get_single_cue(
-    request: Request,
-    cue_id: int,
-    session: Session = Depends(get_session)
-):
+async def get_single_cue(request: Request, cue_id: int, session: Session = Depends(get_session)):
     cue = session.get(Cue, cue_id)
     return templates.TemplateResponse("partials/cue_row.html", {"request": request, "cue": cue})
 
-# 3. Save Changes (Update)
 @app.put("/cues/{cue_id}")
 async def update_cue(
-    request: Request,
-    cue_id: int,
-    number: str = Form(...),
-    department: str = Form(...),
-    description: str = Form(...),
+    request: Request, cue_id: int, 
+    number: str = Form(...), department: str = Form(...), description: str = Form(...),
     session: Session = Depends(get_session)
 ):
-    # Find the cue
     cue = session.get(Cue, cue_id)
     if cue:
-        # Update fields
-        cue.number = number
-        cue.department = department
-        cue.description = description
-        session.add(cue)
-        session.commit()
-        session.refresh(cue) # Refresh to get the latest data
-    
-    # Return the normal row (Read Mode) with the new data
+        cue.number = number; cue.department = department; cue.description = description
+        session.add(cue); session.commit(); session.refresh(cue)
     return templates.TemplateResponse("partials/cue_row.html", {"request": request, "cue": cue})
 
-# --- ROUTE 9: Reorder Cues ---
+# 5. Reorder (Needs to return correct list)
 @app.post("/reorder")
-async def reorder_cues(
-    request: Request,
-    ids: List[int] = Form(...),  # FastAPI automatically parses the list of IDs
-    session: Session = Depends(get_session)
-):
-    # 1. Loop through the IDs in the order they were sent
+async def reorder_cues(request: Request, ids: List[int] = Form(...), session: Session = Depends(get_session)):
+    show_id = None
     for index, cue_id in enumerate(ids):
         cue = session.get(Cue, cue_id)
         if cue:
-            cue.sequence = index + 1  # Update sequence (1, 2, 3...)
+            cue.sequence = index + 1
+            if show_id is None: show_id = cue.show_id # Capture show ID from first cue
             session.add(cue)
-    
     session.commit()
     
-    # 2. Return the sorted list
-    cues = session.exec(select(Cue).order_by(Cue.sequence)).all()
+    # Return list for the captured show_id
+    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
     return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})

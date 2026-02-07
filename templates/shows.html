@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Show Manager</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
+    <style>
+        body { padding: 20px; max-width: 800px; margin: 0 auto; }
+        .show-card { border: 1px solid #333; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        .show-card h3 { margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul><li><strong>Stage Manager App</strong></li></ul>
+    </nav>
+
+    <main>
+        <article>
+            <header>Create New Show</header>
+            <form action="/shows" method="post">
+                <div class="grid">
+                    <input type="text" name="name" placeholder="Show Name (e.g., 'Macbeth')" required>
+                    <input type="text" name="description" placeholder="Description (e.g., 'Fall 2026')">
+                    <button type="submit">Create Show</button>
+                </div>
+            </form>
+        </article>
+
+        <h2>My Shows</h2>
+        {% if not shows %}
+            <p>No shows found. Create one above!</p>
+        {% endif %}
+
+        {% for show in shows %}
+        <div class="show-card">
+            <div class="grid">
+                <div>
+                    <h3>{{ show.name }}</h3>
+                    <small>{{ show.description }}</small>
+                </div>
+                <div style="text-align: right;">
+                    <a href="/shows/{{ show.id }}" role="button">Open Show</a>
+                    
+                    <a href="/shows/{{ show.id }}/delete" 
+                       role="button" 
+                       class="secondary outline"
+                       onclick="return confirm('Delete this show AND all its cues?');">
+                       🗑️
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </main>
+</body>
+</html>
