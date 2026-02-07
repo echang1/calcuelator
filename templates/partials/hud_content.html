@@ -1,0 +1,269 @@
+<div class="hud-grid">
+    <div class="hud-float-left">
+        <div class="hud-meta">CMD MODE: LVL 0</div>
+        <div class="hud-show-name">{{ show_name }}</div>
+    </div>
+    <div class="hud-float-right">
+        <div id="clock">00:00:00</div>
+    </div>
+
+    <div class="hud-middle"></div>
+
+    <div class="hud-carousel">
+    
+        <div class="hud-box side-box">
+            {% if prev_cue %}
+                <div class="global-num">{{ prev_global }}</div>
+                <div class="box-content">
+                    <div class="dept-badge dept-{{ prev_cue.department|lower }}">
+                        {{ prev_cue.department }} {{ prev_cue.number }}
+                    </div>
+                    <div class="cue-title">{{ prev_cue.description }}</div>
+                </div>
+            {% else %}
+                <div class="empty-state">--</div>
+            {% endif %}
+        </div>
+
+        <div class="hud-box main-box active">
+            {% if status == 'running' and current_cue %}
+                <div class="global-num">{{ curr_global }}</div>
+                <div class="box-content">
+                    <span class="dept-badge-large dept-{{ current_cue.department|lower }}">
+                        {{ current_cue.department }} {{ current_cue.number }}
+                    </span>
+                    <span class="cue-title-large">{{ current_cue.description }}</span>
+                </div>
+                <div class="trigger-bar">
+                    <span class="trigger-label">GO:</span>
+                    <span class="trigger-text">{{ current_cue.trigger or "..." }}</span>
+                    <span class="page-num">Pg {{ current_cue.page_num or "-" }}</span>
+                </div>
+
+            {% elif status == 'pre' %}
+                <div class="box-content" style="opacity: 0.5;">
+                    <span class="cue-title-large" style="color: #666;">PRE-SHOW</span>
+                </div>
+                <div class="trigger-bar" style="border-left-color: #444;">
+                    <span class="trigger-text" style="color: #666;">Standby for Start...</span>
+                </div>
+
+            {% elif status == 'post' %}
+                <div class="box-content">
+                    <span class="cue-title-large" style="color: #ff4444;">END OF SHOW</span>
+                </div>
+                <div class="trigger-bar" style="border-left-color: #ff4444;">
+                    <span class="trigger-text" style="color: #ff4444;">Show Complete</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="hud-box side-box standby">
+            {% if next_cue %}
+                <div class="global-num">{{ next_global }}</div>
+                <div class="box-content">
+                    <div class="dept-badge dept-{{ next_cue.department|lower }}">
+                        {{ next_cue.department }} {{ next_cue.number }}
+                    </div>
+                    <div class="cue-title">{{ next_cue.description }}</div>
+                </div>
+            {% elif status == 'post' %}
+                <div class="empty-state" style="font-size: 2rem;">PRE</div> 
+            {% else %}
+                <div class="empty-state">END</div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+
+<style>
+    /* The "Empty State" (END / --) */
+    .empty-state {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        width: 100%;
+        font-size: 3rem;       /* BIG */
+        font-weight: 900;      /* BOLD */
+        color: #333;           /* SUBTLE (or #555) */
+        letter-spacing: 5px;
+        text-transform: uppercase;
+    }
+    
+    /* Specifically for the END box on the right */
+    .side-box.standby .empty-state {
+        color: #888; /* Brighter for visibility */
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    }
+    
+    /* BASE LAYOUT */
+    .hud-grid {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background-color: #000;
+        color: #fff;
+        font-family: 'Courier New', Courier, monospace;
+        padding: 20px;
+        box-sizing: border-box;
+        position: relative;
+    }
+
+    /* FLOATERS */
+    .hud-float-left { position: absolute; top: 20px; left: 20px; z-index: 10; }
+    .hud-float-right { position: absolute; top: 20px; right: 20px; z-index: 10; font-size: 1.5rem; }
+    .hud-meta { color: #666; font-size: 0.8rem; letter-spacing: 1px; }
+    .hud-show-name { font-weight: bold; font-size: 1.2rem; color: #888; margin-top: 5px; }
+
+    /* MIDDLE */
+    .hud-middle { flex-grow: 1; margin-bottom: 10px; }
+
+    /* CAROUSEL */
+    .hud-carousel {
+        display: flex;
+        height: 45vh;
+        gap: 20px;
+    }
+
+    .hud-box {
+        background: #0a0a0a;
+        border: 2px solid #333;
+        border-radius: 8px;
+        padding: 15px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* SIDE BOXES */
+    .side-box { width: 25%; opacity: 1; transition: opacity 0.3s; }
+    
+    .side-box.standby {
+        border-color: #ffd700;
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        opacity: 1;
+    }
+
+    /* MAIN BOX */
+    .main-box { 
+        width: 50%; 
+        border-color: #00ff00; 
+        background: #051005; 
+        box-shadow: 0 0 25px rgba(0, 255, 0, 0.2);
+        opacity: 1; 
+    }
+
+    /* GLOBAL NUMBERS */
+    .global-num { 
+        position: absolute;
+        top: 10px;
+        left: 15px;
+        font-size: 4rem;
+        font-weight: 900;
+        color: #444;
+        line-height: 1;
+        z-index: 5;
+    }
+    .main-box .global-num { color: #00ff00; font-size: 6rem; top: 0px; left: 15px; opacity: 1; }
+    .side-box.standby .global-num { color: #ffd700; }
+
+    /* CONTENT WRAPPER - UPDATED FOR INLINE */
+    .box-content {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: row; /* <--- CHANGED TO ROW */
+        flex-wrap: wrap;     /* <--- ALLOW WRAPPING IF TOO LONG */
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        z-index: 10;
+        gap: 12px; /* <--- SPACE BETWEEN BADGE AND TITLE */
+    }
+
+    /* BADGES */
+    .dept-badge { 
+        font-size: 1.2rem;
+        padding: 0px 5px; 
+        border-radius: 3px; 
+        font-weight: bold;
+        background: #333; 
+    }
+    
+    .dept-badge-large {
+        font-size: 2.5rem;
+        padding: 0px 10px;
+        border-radius: 6px;
+        font-weight: bold;
+        background: #444; 
+    }
+
+    /* TITLES */
+    .cue-title { font-size: 1.2rem; color: #ccc; }
+    
+    /* BOLD STANDBY TITLE */
+    .side-box.standby .cue-title {
+        font-weight: bold;   /* <--- BOLDER */
+        font-size: 1.4rem;   /* <--- SLIGHTLY LARGER */
+        color: #fff;         /* <--- BRIGHTER WHITE */
+    }
+    
+    .cue-title-large { 
+        font-size: 3.5rem; 
+        font-weight: bold; 
+        line-height: 1.1;
+    }
+
+    /* TRIGGER BAR */
+    .trigger-bar {
+        margin-top: auto;
+        background: #1a1a1a;
+        padding: 15px 20px;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-left: 6px solid #00ff00;
+        z-index: 10;
+    }
+    .trigger-label { color: #00ff00; font-weight: bold; font-size: 1.5rem; margin-right: 15px;}
+    .trigger-text { font-size: 2rem; color: #fff; font-weight: bold; }
+    .page-num { color: #888; font-size: 1.2rem;}
+
+    /* DEPT COLORS */
+    .dept-lx { background-color: #0056b3; color: white; }
+    .dept-snd { background-color: #1e7e34; color: white; }
+    .dept-set { background-color: #d35400; color: white; }
+    .dept-av { background-color: #6f42c1; color: white; }
+</style>
+<script>
+    (function() {
+        function updateClock() {
+            const now = new Date();
+            // Format time as HH:MM:SS
+            const timeString = now.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit' 
+            });
+            
+            const clockElement = document.getElementById('clock');
+            if (clockElement) {
+                clockElement.innerText = timeString;
+            }
+        }
+
+        // Run immediately
+        updateClock();
+
+        // Update every second
+        // We attach the interval ID to the element so we don't create duplicates
+        const clockElement = document.getElementById('clock');
+        if (clockElement && !clockElement.dataset.interval) {
+            const intervalId = setInterval(updateClock, 1000);
+            clockElement.dataset.interval = intervalId;
+        }
+    })();
+</script>

@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-
     <style>
         body { padding: 20px; }
         .cue-table { width: 100%; border-collapse: collapse; }
@@ -47,8 +46,10 @@
             <header>Add New Cue</header>
             <form action="/shows/{{ show.id }}/cues" method="post">
                 <div class="grid">
-                    <input type="text" name="number" placeholder="Cue #" required>
-                    <input type="text" name="department" placeholder="Dept (LX, SND)" required>
+                    <input type="text" name="number" placeholder="Cue #" required style="flex: 0 0 100px;"> 
+                    <input type="text" name="trigger" placeholder="Trigger (e.g. 'Door Slam')" required style="flex: 0 0 70px;">
+                    <input type="text" name="page_num" placeholder="Page # in Script" required>  
+                    <input type="text" name="department" placeholder="Dept" required style="flex: 0 0 100px;">
                     <input type="text" name="description" placeholder="Description" required>
                     <button type="submit">Add Cue</button>
                 </div>
@@ -68,11 +69,13 @@
         <table class="cue-table">
             <thead>
                 <tr>
-                    <th>GO</th>
-                    <th>Cue #</th>
-                    <th>Dept</th>
-                    <th>Description</th>
-                    <th>Actions</th>
+                    <th scope="col" style="width: 50px;">GO</th>
+                    <th scope="col" style="width: 80px;">Cue #</th>
+                    <th scope="col">Trigger</th> 
+                    <th scope="col">Page Num</th> 
+                    <th scope="col" style="width: 80px;">Dept</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Actions</th>
                 </tr>
             </thead>
             <tbody id="cue-table-body">
@@ -80,6 +83,9 @@
             </tbody>
         </table>
     </main>
+    <div id="hud-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: black;">
+
+    </div>
 
     <script>
         // Spacebar Shortcut Logic
@@ -130,6 +136,51 @@
                 });
             }
         });
+        // HUD Logic
+        document.addEventListener('keydown', function(event) {
+            const hud = document.getElementById('hud-overlay');
+            const isEditing = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA';
+
+            // Don't trigger HUD if the user is currently typing in an input field
+            if (isEditing) return;
+
+            // Toggle HUD with 'h'
+            if (event.key.toLowerCase() === 'h') {
+                if (hud.style.display === 'none') {
+                    hud.style.display = 'block';
+                    refreshHud();
+                } else {
+                    hud.style.display = 'none';
+                }
+            }
+
+            // NAVIGATION
+            if (hud.style.display !== 'none') {
+                if (event.key === 'ArrowRight') {
+                    // 1. Call the backend to switch state
+                    htmx.ajax('POST', '/shows/{{ show.id }}/next_cue', {
+                        target: '#hud-overlay', 
+                        swap: 'none' // Don't replace anything yet
+                    }).then(() => {
+                        // 2. Once finished, refresh the visual content
+                        refreshHud();
+                    });
+                }
+                
+                if (event.key === 'ArrowLeft') {
+                    htmx.ajax('POST', '/shows/{{ show.id }}/prev_cue', {
+                        target: '#hud-overlay', 
+                        swap: 'none'
+                    }).then(() => {
+                        refreshHud();
+                    });
+                }
+            }
+        });
+        function refreshHud() {
+            // This hits the new endpoint we created in main.py
+            htmx.ajax('GET', '/shows/{{ show.id }}/hud_content', '#hud-overlay');
+        }
     </script>
 </body>
 </html>

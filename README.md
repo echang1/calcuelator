@@ -47,7 +47,12 @@ Once the server is running, the workflow is centered around show-specific cue li
 
 ## Changelog
 
+### v0.2.0
+**Command Console**
+* Implemented HUD Mode: Press `H` to toggle a full-screen, high-contrast overlay designed for keyboard navigation during live performances.
+* Added Cue columns for _Trigger_, the specific action/line that initiates the cue, and _Page Num_, the associated script page.
+
 ### v0.1.0
-* **Initial Release:** 
-    * Established the core sequencing engine with support for multi-show relational data.
-    * Implemented interactive show execution and drag-and-drop reordering.
+**Initial Release:** 
+* Established the core sequencing engine with support for multi-show relational data.
+* Implemented interactive show execution and drag-and-drop reordering.
