@@ -4,31 +4,47 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stage Manager App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     <style>
-        body {
-            font-family: sans-serif;
-            background-color: #222; /* Dark mode base */
-            color: #eee;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-            border: 2px solid #444;
-            padding: 2rem;
-            border-radius: 10px;
-        }
-        h1 { color: #4CAF50; } /* Green for "Go" vibes */
+        body { padding: 20px; }
+        .cue-table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border-bottom: 1px solid #333; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>{{ message }}</h1>
-        <p>Status: <strong>Online</strong></p>
-        <p>Current Mode: <strong>Rehearsal</strong></p>
-    </div>
+    <main class="container">
+        <h1>Show Control</h1>
+
+        <article>
+            <header>Add New Cue</header>
+            <form action="/cues" method="post">
+                <div class="grid">
+                    <input type="text" name="number" placeholder="Cue #" required>
+                    <input type="text" name="department" placeholder="Dept (LX, SND)" required>
+                    <input type="text" name="description" placeholder="Description" required>
+                    <button type="submit">Add Cue</button>
+                </div>
+            </form>
+        </article>
+
+        <table class="cue-table">
+            <thead>
+                <tr>
+                    <th>Cue #</th>
+                    <th>Dept</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cue in cues %}
+                <tr>
+                    <td><strong>{{ cue.number }}</strong></td>
+                    <td>{{ cue.department }}</td>
+                    <td>{{ cue.description }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
 </body>
 </html>
