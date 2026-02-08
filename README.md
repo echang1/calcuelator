@@ -2,7 +2,7 @@
 
 A web-based dynamic prompt book and calling console built to streamline the planning and coordination of live performance cues.
 
-This project was created to move beyond static paper cue sheets, providing a digital workspace to dynamically manage cue sequences, track show progress, and organize production data.
+Build to replace static paper cue sheets, this project provides a digital workspace to dynamically manage cue sequences, track show progress, and organize production data. It was developed to address my own requirements as a volunteer stage manager.
 
 Currently in active development.
 
