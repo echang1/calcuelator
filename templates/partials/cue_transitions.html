@@ -1,0 +1,107 @@
+<tr class="designer-row" data-id="{{ cue.id }}">
+    <td colspan="7" style="background: #111; padding: 20px; border-left: 5px solid #007bff;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <h5 style="margin-bottom: 15px; color: #007bff;">Movement Designer: Cue {{ cue.number }}</h5>
+            
+            <button 
+                hx-get="/shows/{{ cue.show_id }}/cues/{{ cue.id }}" 
+                hx-target="closest .designer-row" 
+                hx-swap="outerHTML"
+                class="outline secondary"
+                style="padding: 5px 10px; font-size: 0.8rem;">
+                Close
+            </button>
+        </div>
+
+        {% if cue.transitions %}
+            <table style="width: 100%; margin-bottom: 20px; border: 1px solid #333;">
+                <thead style="background: #222;">
+                    <tr>
+                        <th style="padding: 8px;">Element</th>
+                        <th style="padding: 8px;">Target State</th>
+                        <th style="padding: 8px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trans in cue.transitions %}
+                    <tr>
+                        <td style="padding: 8px;">{{ trans.element.name }}</td>
+                        <td style="padding: 8px; color: #fff; font-weight: bold;">{{ trans.target_state }}</td>
+                        <td style="padding: 8px;">
+                            <button 
+                                hx-delete="/transitions/{{ trans.id }}"
+                                hx-target="closest .designer-row" 
+                                hx-swap="outerHTML"
+                                style="background: none; border: none; color: #d93526; cursor: pointer;">
+                                ✕
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: #666; font-style: italic; margin-bottom: 15px;">No movements assigned to this cue.</p>
+        {% endif %}
+
+        <form 
+            hx-post="/cues/{{ cue.id }}/transitions" 
+            hx-target="closest .designer-row" 
+            hx-swap="outerHTML"
+            style="display: flex; gap: 10px; align-items: center; background: #222; padding: 10px; border-radius: 6px;">
+            
+            <strong style="color: #888;">Add:</strong>
+            
+            <select name="element_id" required style="margin-bottom: 0; width: auto; flex-grow: 1;">
+                <option value="" disabled selected>Select Element...</option>
+                <optgroup label="Deck / Set">
+                    {% for el in elements if el.category != 'Fly' %}
+                        <option value="{{ el.id }}">{{ el.name }}</option>
+                    {% endfor %}
+                </optgroup>
+                <optgroup label="Fly Rail">
+                    {% for el in elements if el.category == 'Fly' %}
+                        <option value="{{ el.id }}">{{ el.name }}</option>
+                    {% endfor %}
+                </optgroup>
+            </select>
+            
+            <span style="color: #888;">→</span>
+            
+            <select name="target_state" required style="margin-bottom: 0; width: auto; flex-grow: 1;">
+                <option value="" disabled selected>Select Location...</option>
+                
+                <optgroup label="Wings">
+                    <option value="SL Wing">SL Wing (Off Left)</option>
+                    <option value="SR Wing">SR Wing (Off Right)</option>
+                </optgroup>
+
+                <optgroup label="Upstage">
+                    <option value="USR">USR (Up Right)</option>
+                    <option value="USC">USC (Up Center)</option>
+                    <option value="USL">USL (Up Left)</option>
+                </optgroup>
+
+                <optgroup label="Center Stage">
+                    <option value="SR">SR (Stage Right)</option>
+                    <option value="CS">CS (Center Stage)</option>
+                    <option value="SL">SL (Stage Left)</option>
+                </optgroup>
+
+                <optgroup label="Downstage">
+                    <option value="DSR">DSR (Down Right)</option>
+                    <option value="DSC">DSC (Down Center)</option>
+                    <option value="DSL">DSL (Down Left)</option>
+                </optgroup>
+
+                <optgroup label="Fly Rail">
+                    <option value="In">In (Low / Active)</option>
+                    <option value="Out">Out (High / Stored)</option>
+                </optgroup>
+            </select>
+            
+            <button type="submit" style="width: auto; padding: 8px 15px;">Save Move</button>
+        </form>
+    </td>
+</tr>

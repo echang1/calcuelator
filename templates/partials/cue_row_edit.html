@@ -1,13 +1,12 @@
 <tr data-id="{{ cue.id }}" class="{{ 'active-row' if cue.is_active else '' }}">
     <td>Editing...</td>
 
+    <td><input type="text" name="department" value="{{ cue.department }}" placeholder="Dept"></td>
     <td><input type="text" name="number" value="{{ cue.number }}" placeholder="#"></td>
-    
     <td><input type="text" name="trigger" value="{{ cue.trigger }}" placeholder="Trigger"></td>
     <td><input type="text" name="page_num" value="{{ cue.page_num }}" placeholder="Page Num"></td>
-    <td><input type="text" name="department" value="{{ cue.department }}" placeholder="Dept"></td>
     <td><input type="text" name="description" value="{{ cue.description }}" placeholder="Description"></td>
-
+    
     <td>
         <button 
             hx-put="/cues/{{ cue.id }}" 

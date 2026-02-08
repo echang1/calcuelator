@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
 from typing import List, Optional
+from datetime import datetime
 from fastapi import FastAPI, Request, Depends, Form, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from sqlmodel import Session, select, func
 from database import create_db_and_tables, get_session
-from models import Cue, Show  # Import Show as well
+from models import Cue, Show, StageElement, ElementTransition
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -15,190 +16,157 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
-# --- LOBBY ROUTES (Show Management) ---
+# --- LOBBY ROUTES ---
 
 @app.get("/")
-async def list_shows(
-    request: Request, 
-    session: Session = Depends(get_session)
-):
-    """The new Homepage: Lists all shows."""
+async def list_shows(request: Request, session: Session = Depends(get_session)):
     shows = session.exec(select(Show)).all()
     return templates.TemplateResponse("shows.html", {"request": request, "shows": shows})
 
 @app.post("/shows")
-async def create_show(
-    name: str = Form(...), 
-    description: str = Form(None), 
-    session: Session = Depends(get_session)
-):
-    """Create a new show bucket."""
+async def create_show(name: str = Form(...), description: str = Form(None), session: Session = Depends(get_session)):
     new_show = Show(name=name, description=description)
     session.add(new_show)
     session.commit()
     return RedirectResponse(url="/", status_code=303)
 
 @app.get("/shows/{show_id}/delete")
-async def delete_show(
-    show_id: int, 
-    session: Session = Depends(get_session)
-):
-    """Delete a show and its cues."""
+async def delete_show(show_id: int, session: Session = Depends(get_session)):
     show = session.get(Show, show_id)
     if show:
-        # Note: In a real app, use cascade delete. Here we rely on SQLModel relationships or manual cleanup.
-        # For simplicity, we just delete the show object.
         session.delete(show)
         session.commit()
     return RedirectResponse(url="/", status_code=303)
 
-
-# --- SHOW CONTROL ROUTES (The Actual App) ---
+# --- SHOW CONTROL ROUTES ---
 
 @app.get("/shows/{show_id}")
-async def enter_show(
-    request: Request, 
-    show_id: int, 
-    session: Session = Depends(get_session)
-):
-    """
-    This replaces the old root '/'. 
-    It loads the specific show and its cues.
-    """
+async def enter_show(request: Request, show_id: int, session: Session = Depends(get_session)):
     show = session.get(Show, show_id)
-    if not show:
-        return RedirectResponse(url="/")
-        
-    # Get cues ONLY for this show, sorted by sequence
+    if not show: return RedirectResponse(url="/")
     cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
-    
-    return templates.TemplateResponse("index.html", {
-        "request": request, 
-        "cues": cues, 
-        "show": show  # Pass the show object so we can use show.id in templates
-    })
+    return templates.TemplateResponse("index.html", {"request": request, "cues": cues, "show": show})
 
-# --- CUE MANAGEMENT (Updated to use show_id) ---
+# --- INVENTORY ROUTES ---
+
+@app.post("/shows/{show_id}/elements")
+async def create_element(show_id: int, name: str = Form(...), category: str = Form(...), default_state: str = Form(...), session: Session = Depends(get_session)):
+    element = StageElement(name=name, category=category, default_state=default_state, show_id=show_id)
+    session.add(element)
+    session.commit()
+    session.refresh(element)
+    return templates.TemplateResponse("partials/element_row.html", {"request": {}, "element": element})
+
+@app.delete("/elements/{element_id}")
+async def delete_element(element_id: int, session: Session = Depends(get_session)):
+    element = session.get(StageElement, element_id)
+    if element:
+        session.delete(element)
+        session.commit()
+    return Response(status_code=200)
+
+# --- TRANSITION ROUTES ---
+
+@app.get("/shows/{show_id}/cues/{cue_id}")
+async def get_single_cue_row(show_id: int, cue_id: int, session: Session = Depends(get_session)):
+    cue = session.get(Cue, cue_id)
+    return templates.TemplateResponse("partials/cue_rows.html", {"request": {}, "cues": [cue]})
+
+@app.get("/cues/{cue_id}/transitions")
+async def get_transitions(cue_id: int, session: Session = Depends(get_session)):
+    cue = session.get(Cue, cue_id)
+    elements = session.exec(select(StageElement).where(StageElement.show_id == cue.show_id)).all()
+    return templates.TemplateResponse("partials/cue_transitions.html", {"request": {}, "cue": cue, "elements": elements})
+
+@app.post("/cues/{cue_id}/transitions")
+async def create_transition(cue_id: int, element_id: int = Form(...), target_state: str = Form(...), session: Session = Depends(get_session)):
+    transition = ElementTransition(cue_id=cue_id, element_id=element_id, target_state=target_state)
+    session.add(transition)
+    session.commit()
+    cue = session.get(Cue, cue_id)
+    elements = session.exec(select(StageElement).where(StageElement.show_id == cue.show_id)).all()
+    return templates.TemplateResponse("partials/cue_transitions.html", {"request": {}, "cue": cue, "elements": elements})
+
+@app.delete("/transitions/{trans_id}")
+async def delete_transition(trans_id: int, session: Session = Depends(get_session)):
+    trans = session.get(ElementTransition, trans_id)
+    cue_id = trans.cue_id
+    if trans:
+        session.delete(trans)
+        session.commit()
+    cue = session.get(Cue, cue_id)
+    elements = session.exec(select(StageElement).where(StageElement.show_id == cue.show_id)).all()
+    return templates.TemplateResponse("partials/cue_transitions.html", {"request": {}, "cue": cue, "elements": elements})
+
+# --- CUE MANAGEMENT ---
 
 @app.post("/shows/{show_id}/cues")
-async def create_cue(
-    show_id: int,
-    number: str = Form(...),
-    description: str = Form(...),
-    department: str = Form(...),
-    trigger: str = Form(None),
-    page_num: str = Form(None),
-    session: Session = Depends(get_session)
-):
-    # Calculate sequence relative to THIS show
-    # SELECT MAX(sequence) FROM cue WHERE show_id = X
-    max_seq = session.exec(
-        select(func.max(Cue.sequence)).where(Cue.show_id == show_id)
-    ).one()
-    
+async def create_cue(show_id: int, number: str = Form(...), description: str = Form(...), department: str = Form(...), trigger: str = Form(None), page_num: str = Form(None), session: Session = Depends(get_session)):
+    max_seq = session.exec(select(func.max(Cue.sequence)).where(Cue.show_id == show_id)).one()
     new_seq = (max_seq or 0) + 1
-    
-    new_cue = Cue(
-        number=number, 
-        description=description, 
-        department=department,
-        trigger=trigger,
-        page_num=page_num,
-        sequence=new_seq, 
-        show_id=show_id
-    )
+    new_cue = Cue(number=number, description=description, department=department, trigger=trigger, page_num=page_num, sequence=new_seq, show_id=show_id)
     session.add(new_cue)
     session.commit()
     return RedirectResponse(url=f"/shows/{show_id}", status_code=303)
 
-# ... (Previous Action Routes: Activate, Reset, Delete, Reorder) ...
-# We need to update these to redirect correctly or filter correctly.
-
-# 1. Activate (Logic doesn't change much, but we need to ensure we return the right list)
 @app.get("/cues/{cue_id}/activate")
-async def activate_cue(
-    request: Request, 
-    cue_id: int, 
-    session: Session = Depends(get_session)
-):
-    # Get the cue to find out which show it belongs to
+async def activate_cue(request: Request, cue_id: int, session: Session = Depends(get_session)):
     cue = session.get(Cue, cue_id)
     if not cue: return Response(status_code=404)
     show_id = cue.show_id
+    show = session.get(Show, show_id)
 
-    # Deactivate all cues IN THIS SHOW
+    # Deactivate ALL
     active_cues = session.exec(select(Cue).where(Cue.show_id == show_id).where(Cue.is_active == True)).all()
     for c in active_cues:
         c.is_active = False
         session.add(c)
     
-    # Activate target
+    # Activate Target
     cue.is_active = True
+    show.status = "running"
     session.add(cue)
+    session.add(show)
     session.commit()
     
-    # Return updated list for THIS show
     cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
     return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
 
-# 2. Reset (Needs show_id)
 @app.post("/shows/{show_id}/reset")
-async def reset_show(
-    request: Request, 
-    show_id: int, 
-    session: Session = Depends(get_session)
-):
-    active_cues = session.exec(select(Cue).where(Cue.show_id == show_id).where(Cue.is_active == True)).all()
-    for c in active_cues:
-        c.is_active = False
-        session.add(c)
-    session.commit()
+async def reset_show(show_id: int, session: Session = Depends(get_session)):
+    show = session.get(Show, show_id)
+    cues = session.exec(select(Cue).where(Cue.show_id == show_id)).all()
     
-    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
-    return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
+    # NUCLEAR RESET: Turn EVERYTHING off
+    for cue in cues:
+        cue.is_active = False
+        session.add(cue)
+    
+    show.status = "pre"
+    session.add(show)
+    session.commit()
+    return Response(status_code=204)
 
-# 3. Delete (Same as before, logic is ID based so it's safe)
 @app.delete("/cues/{cue_id}")
-async def delete_cue(
-    cue_id: int, 
-    session: Session = Depends(get_session)
-):
+async def delete_cue(cue_id: int, session: Session = Depends(get_session)):
     cue = session.get(Cue, cue_id)
     if cue:
         session.delete(cue)
         session.commit()
     return Response(status_code=200)
 
-# 4. Edit Routes (Same as before)
 @app.get("/cues/{cue_id}/edit")
-async def get_edit_form(
-    request: Request, 
-    cue_id: int, 
-    session: Session = Depends(get_session)
-):
+async def get_edit_form(request: Request, cue_id: int, session: Session = Depends(get_session)):
     cue = session.get(Cue, cue_id)
     return templates.TemplateResponse("partials/cue_row_edit.html", {"request": request, "cue": cue})
 
 @app.get("/cues/{cue_id}")
-async def get_single_cue(
-    request: Request, 
-    cue_id: int, 
-    session: Session = Depends(get_session)
-):
+async def get_single_cue(request: Request, cue_id: int, session: Session = Depends(get_session)):
     cue = session.get(Cue, cue_id)
     return templates.TemplateResponse("partials/cue_row.html", {"request": request, "cue": cue})
 
 @app.put("/cues/{cue_id}")
-async def update_cue(
-    request: Request, 
-    cue_id: int, 
-    number: str = Form(...), 
-    department: str = Form(...), 
-    description: str = Form(...),
-    trigger: str = Form(None),
-    page_num: str = Form(None),
-    session: Session = Depends(get_session)
-):
+async def update_cue(request: Request, cue_id: int, number: str = Form(...), department: str = Form(...), description: str = Form(...), trigger: str = Form(None), page_num: str = Form(None), session: Session = Depends(get_session)):
     cue = session.get(Cue, cue_id)
     if cue:
         cue.number = number
@@ -211,25 +179,79 @@ async def update_cue(
         session.refresh(cue)
     return templates.TemplateResponse("partials/cue_row.html", {"request": request, "cue": cue})
 
-# 5. Reorder (Needs to return correct list)
 @app.post("/reorder")
-async def reorder_cues(
-    request: Request, 
-    ids: List[int] = Form(...), 
-    session: Session = Depends(get_session)
-):
+async def reorder_cues(request: Request, ids: List[int] = Form(...), session: Session = Depends(get_session)):
     show_id = None
     for index, cue_id in enumerate(ids):
         cue = session.get(Cue, cue_id)
         if cue:
             cue.sequence = index + 1
-            if show_id is None: show_id = cue.show_id # Capture show ID from first cue
+            if show_id is None: show_id = cue.show_id
             session.add(cue)
     session.commit()
-    
-    # Return list for the captured show_id
     cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
     return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
+
+@app.get("/shows/{show_id}/table_body")
+async def get_table_body(request: Request, show_id: int, session: Session = Depends(get_session)):
+    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
+    return templates.TemplateResponse("partials/cue_rows.html", {"request": request, "cues": cues})
+
+# --- ENGINE ROUTES (API Control) ---
+
+@app.post("/shows/{show_id}/go")
+async def go_cue_server(show_id: int, session: Session = Depends(get_session)):
+    show = session.get(Show, show_id)
+    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
+    
+    active_cue = next((c for c in cues if c.is_active), None)
+    
+    if active_cue:
+        idx = cues.index(active_cue)
+        active_cue.is_active = False 
+        
+        if idx < len(cues) - 1:
+            cues[idx + 1].is_active = True 
+            show.status = "running"
+        else:
+            show.status = "post" # End of show
+            
+    elif show.status == "pre" and cues:
+        cues[0].is_active = True 
+        show.status = "running"
+
+    elif show.status == "post":
+        show.status = "pre"
+        
+    session.add(show)
+    session.commit()
+    return Response(status_code=204)
+
+@app.post("/shows/{show_id}/back")
+async def back_cue_server(show_id: int, session: Session = Depends(get_session)):
+    show = session.get(Show, show_id)
+    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
+    
+    active_cue = next((c for c in cues if c.is_active), None)
+    
+    if active_cue:
+        idx = cues.index(active_cue)
+        active_cue.is_active = False # Turn off current
+        
+        if idx > 0:
+            cues[idx - 1].is_active = True # Turn on prev
+            show.status = "running"
+        else:
+            show.status = "pre" # Back to start
+            
+    elif show.status == "post" and cues:
+        cues[-1].is_active = True # Back from end
+        show.status = "running"
+
+    session.add(show)
+    session.commit()
+    return Response(status_code=204)
+
 
 # --- HUD ROUTES ---
 
@@ -238,153 +260,110 @@ async def get_hud_content(show_id: int, session: Session = Depends(get_session))
     show = session.get(Show, show_id)
     cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
     
-    if not cues:
-        return "No cues found"
+    # 1. Determine Context
+    active_cue = next((c for c in cues if c.is_active), None)
+    prev_cue, next_cue = None, None
+    curr_global, prev_global, next_global = "-", None, None
 
-    # Default variables
-    current_cue = None
-    prev_cue = None
-    next_cue = None
-    curr_global = "-"
-    prev_global = None
-    next_global = None
-    
-    # LOGIC BRANCHING
-    if show.status == "pre":
-        # PRE-SHOW: Center=PRE, Next=Cue 1
-        curr_global = "PRE"
-        next_global = 1
-        next_cue = cues[0]
-
-    elif show.status == "post":
-        # POST-SHOW: Center=END, Prev=Last Cue, Next=PRE
-        curr_global = "END"
-        prev_global = len(cues)
-        prev_cue = cues[-1]
-        next_global = "PRE" 
-
-    elif show.status == "running":
-        # NORMAL RUNNING
-        active_index = next((i for i, c in enumerate(cues) if c.is_active), 0)
-        current_cue = cues[active_index]
-        curr_global = active_index + 1
+    if active_cue:
+        idx = cues.index(active_cue)
+        curr_global = idx + 1
         
-        if active_index > 0:
-            prev_cue = cues[active_index - 1]
-            prev_global = active_index
+        if idx > 0:
+            prev_cue = cues[idx - 1]
+            prev_global = idx
+        if idx < len(cues) - 1:
+            next_cue = cues[idx + 1]
+            next_global = idx + 2
             
-        if active_index < len(cues) - 1:
-            next_cue = cues[active_index + 1]
-            next_global = active_index + 2
-        else:
-            # Active is Last Cue -> Next is END
-            next_global = "END"
+    elif show.status == 'post' and cues:
+        prev_cue = cues[-1]
+        prev_global = len(cues)
+        curr_global = "END"
+        
+    elif show.status == 'pre' and cues:
+        next_cue = cues[0]
+        next_global = 1
+        curr_global = "PRE"
+
+    current_time = datetime.now().strftime("%H:%M:%S")
 
     return templates.TemplateResponse("partials/hud_content.html", {
         "request": {},
-        "current_cue": current_cue,
+        "show_name": show.name,
+        "status": show.status,
+        "current_cue": active_cue, # Note: Template expects current_cue
         "prev_cue": prev_cue,
         "next_cue": next_cue,
         "curr_global": curr_global,
         "prev_global": prev_global,
         "next_global": next_global,
-        "show_name": show.name,
-        "status": show.status # Pass status to template
+        "current_time": current_time
     })
-    
-@app.post("/shows/{show_id}/next_cue")
-async def advance_cue(show_id: int, session: Session = Depends(get_session)):
+
+@app.get("/shows/{show_id}/hud/spatial")
+async def get_spatial_content(show_id: int, session: Session = Depends(get_session)):
     show = session.get(Show, show_id)
     cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
     
-    if not show or not cues:
-        return Response(status_code=200)
-
-    # 1. Handle PRE -> START
-    if show.status == "pre":
-        show.status = "running"
-        cues[0].is_active = True
-        session.add(show)
-        session.add(cues[0])
-        session.commit()
-        return Response(status_code=200)
-
-    # 2. Handle POST -> PRE (Loop)
-    if show.status == "post":
-        show.status = "pre"
-        session.add(show)
-        session.commit()
-        return Response(status_code=200)
-
-    # 3. Handle RUNNING Logic
-    if show.status == "running":
-        active_index = next((i for i, c in enumerate(cues) if c.is_active), -1)
-        
-        # If we are somehow running but nothing is active, reset to pre
-        if active_index == -1:
-            show.status = "pre"
-            session.add(show)
-            session.commit()
-            return Response(status_code=200)
-
-        # Deactivate current
-        cues[active_index].is_active = False
-        session.add(cues[active_index])
-
-        # Check if Last Cue
-        if active_index == len(cues) - 1:
-            # Go to POST
-            show.status = "post"
-            session.add(show)
-        else:
-            # Go to Next
-            cues[active_index + 1].is_active = True
-            session.add(cues[active_index + 1])
-        
-        session.commit()
-        return Response(status_code=200)
-
-
-@app.post("/shows/{show_id}/prev_cue")
-async def regress_cue(show_id: int, session: Session = Depends(get_session)):
-    show = session.get(Show, show_id)
-    cues = session.exec(select(Cue).where(Cue.show_id == show_id).order_by(Cue.sequence)).all()
+    # 1. Determine Context (Identical Logic)
+    active_cue = next((c for c in cues if c.is_active), None)
+    prev_cue, next_cue = None, None
+    curr_global, prev_global, next_global = None, None, None # Spatial handles "PRE/END" differently in template usually, but let's pass consistent data
     
-    if not show or not cues:
-        return Response(status_code=200)
-
-    # 1. Handle PRE -> POST (Loop Back)
-    if show.status == "pre":
-        show.status = "post"
-        session.add(show)
-        session.commit()
-        return Response(status_code=200)
-
-    # 2. Handle POST -> LAST CUE
-    if show.status == "post":
-        show.status = "running"
-        cues[-1].is_active = True # Activate last cue
-        session.add(show)
-        session.add(cues[-1])
-        session.commit()
-        return Response(status_code=200)
-
-    # 3. Handle RUNNING Logic
-    if show.status == "running":
-        active_index = next((i for i, c in enumerate(cues) if c.is_active), -1)
+    # Note: Spatial template uses 'active_cue' variable, LVL 0 uses 'current_cue'. 
+    # Logic below matches spatial expectations.
+    
+    if active_cue:
+        idx = cues.index(active_cue)
+        curr_global = idx + 1
         
-        if active_index > 0:
-            # Normal Step Back
-            cues[active_index].is_active = False
-            cues[active_index - 1].is_active = True
-            session.add(cues[active_index])
-            session.add(cues[active_index - 1])
-        elif active_index == 0:
-            # First Cue -> PRE
-            cues[0].is_active = False
-            show.status = "pre"
-            session.add(cues[0])
-            session.add(show)
-            
-        session.commit()
-        return Response(status_code=200)
+        if idx > 0:
+            prev_cue = cues[idx - 1]
+            prev_global = idx
+        if idx < len(cues) - 1:
+            next_cue = cues[idx + 1]
+            next_global = idx + 2
+
+    elif show.status == 'post' and cues:
+        prev_cue = cues[-1]
+        prev_global = len(cues)
+    
+    elif show.status == 'pre' and cues:
+        next_cue = cues[0]
+        next_global = 1
+
+    # 2. Element States
+    active_seq = active_cue.sequence if active_cue else (999999 if show.status == 'post' else 0)
+    elements = session.exec(select(StageElement).where(StageElement.show_id == show_id)).all()
+    
+    element_states = []
+    for el in elements:
+        last_move = session.exec(
+            select(ElementTransition)
+            .join(Cue)
+            .where(ElementTransition.element_id == el.id)
+            .where(Cue.sequence <= active_seq)
+            .order_by(Cue.sequence.desc())
+        ).first()
+        current_state = last_move.target_state if last_move else el.default_state
+        element_states.append({"name": el.name, "category": el.category, "state": current_state})
+
+    fly_items = [e for e in element_states if e['category'] == 'Fly']
+    deck_items = [e for e in element_states if e['category'] != 'Fly'] 
+    current_time = datetime.now().strftime("%H:%M:%S")
+
+    return templates.TemplateResponse("partials/hud_spatial.html", {
+        "request": {},
+        "show": show,
+        "status": show.status,
+        "active_cue": active_cue,
+        "prev_cue": prev_cue,
+        "next_cue": next_cue,
+        "curr_global": curr_global,
+        "prev_global": prev_global,
+        "next_global": next_global,
+        "deck_items": deck_items,
+        "fly_items": fly_items,
+        "current_time": current_time
+    })

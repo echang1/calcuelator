@@ -9,29 +9,41 @@
         </button>
     </td>
 
-    <td><strong>{{ cue.number }}</strong></td>
-    <td><em>{{ cue.trigger }}</em></td> 
-    <td><em>{{ cue.page_num }}</em></td> 
     <td><small>{{ cue.department }}</small></td>
+    <td><strong>{{ cue.number }}</strong></td>
+    <td><em>{{ cue.trigger }}</em></td>
+    <td><em>{{ cue.page_num }}</em></td>
     <td>{{ cue.description }}</td>
-
-    <td>
+          
+    <td style="white-space: nowrap;">
         <button 
             hx-get="/cues/{{ cue.id }}/edit" 
             hx-target="closest tr" 
             hx-swap="outerHTML"
             class="secondary outline"
-            style="border: none; padding: 5px; margin-right: 5px;">
+            style="border: none; padding: 5px; margin-right: 5px;"
+            title="Edit Cue Details">
             ✏️
         </button>
-
+        
+        <button 
+            hx-get="/cues/{{ cue.id }}/transitions" 
+            hx-target="closest tr" 
+            hx-swap="outerHTML"
+            class="secondary outline" 
+            style="border: none; padding: 5px; margin-right: 5px;"
+            title="Manage Stage Moves (Level +1)">
+            📦
+        </button>
+        
         <button 
             hx-delete="/cues/{{ cue.id }}" 
             hx-confirm="Are you sure?"
             hx-target="closest tr" 
             hx-swap="outerHTML"
             class="secondary outline"
-            style="border: none; padding: 5px;">
+            style="border: none; padding: 5px;"
+            title="Delete Cue">
             🗑️
         </button>
     </td>

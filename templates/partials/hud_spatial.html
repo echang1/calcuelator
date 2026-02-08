@@ -1,0 +1,247 @@
+<div class="hud-grid" style="display: flex; flex-direction: column; height: 100vh; padding: 20px; position: relative;">
+    
+    <div class="hud-float-left">
+        <div class="hud-meta">CMD MODE: LVL +1 (GROUND PLAN)</div>
+        <div class="hud-show-name">{{ show.name }}</div>
+    </div>
+    <div class="hud-float-right">
+        <div id="clock-spatial">{{ current_time }}</div>
+    </div>
+
+    <div class="spatial-dashboard-grid" style="margin-top: 50px;">
+        
+        <div class="hud-box rail-box" style="grid-area: rail; overflow: hidden;">
+            <div style="text-align: center; background: #222; padding: 5px; font-weight: bold; font-size: 0.9rem; color: #ccc;">FLY RAIL</div>
+            <div style="display: flex; flex-grow: 1; overflow: hidden; height: 100%;">
+                <div style="width: 50%; border-right: 1px solid #444; padding: 5px; background: #111; display: flex; flex-direction: column;">
+                    <div style="text-align: center; font-size: 0.7rem; color: #666; margin-bottom: 5px; border-bottom: 1px solid #333;">OUT / HIGH</div>
+                    <div style="overflow-y: auto; flex-grow: 1;">
+                        {% for item in fly_items %}
+                            {% if 'in' not in item.state|lower and 'low' not in item.state|lower %}
+                                <div class="rail-item out">{{ item.name }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                <div style="width: 50%; padding: 5px; background: #051005; display: flex; flex-direction: column;">
+                    <div style="text-align: center; font-size: 0.7rem; color: #00ff00; margin-bottom: 5px; border-bottom: 1px solid #004400;">IN / LOW</div>
+                    <div style="overflow-y: auto; flex-grow: 1;">
+                        {% for item in fly_items %}
+                            {% if 'in' in item.state|lower or 'low' in item.state|lower %}
+                                <div class="rail-item in">{{ item.name }}</div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="hud-box cue-list-box" style="grid-area: cue-list; display: flex; flex-direction: column; padding: 0; background: #0a0a0a; border: 2px solid #333; height: 100%;">
+            
+            <div style="text-align: center; background: #222; padding: 5px; font-weight: bold; font-size: 0.9rem; color: #ccc; border-bottom: 1px solid #333;">CUE LIST</div>
+
+            <div style="display: flex; flex-direction: column; flex-grow: 1; height: 100%;">
+                
+                <div class="mini-cue-row" style="height: 20%; display: flex; align-items: center; border-bottom: 1px solid #333; background: #111; padding: 0 10px; position: relative;">
+                    {% if prev_cue %}
+                        <div class="mini-global-num" style="color: #444;">{{ prev_global }}</div>
+                        <div style="opacity: 1; display: flex; align-items: center; width: 100%; overflow: hidden; position: relative; z-index: 2; margin-left: 60px;">
+                            <span class="dept-badge dept-{{ prev_cue.department|lower }}" style="font-size: 0.8rem; margin-right: 10px;">{{ prev_cue.department }} {{ prev_cue.number }}</span>
+                            <span style="color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ prev_cue.description }}</span>
+                        </div>
+                    {% else %}
+                        <span style="color: #444; z-index: 2;">--</span>
+                    {% endif %}
+                </div>
+
+                <div class="mini-cue-row active" style="height: 60%; background: #051005; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 5px; border-bottom: 1px solid #333; position: relative; overflow: hidden;">
+                    {% if status == 'running' and active_cue %}
+                        <div class="mini-global-num" style="color: #00ff00; opacity: 1; font-size: 6rem; top: 50%; transform: translateY(-50%); left: 10px;">{{ curr_global }}</div>
+                        
+                        <div style="position: relative; z-index: 2; text-align: center; width: 100%;">
+                            <div class="dept-badge-large dept-{{ active_cue.department|lower }}" style="font-size: 1.5rem; margin-bottom: 5px; display: inline-block;">
+                                {{ active_cue.department }}{{ active_cue.number }}
+                            </div>
+                            <div style="font-size: 1.1rem; font-weight: bold; color: #fff; line-height: 1.2; margin-bottom: 5px; overflow: hidden; text-overflow: ellipsis; padding: 0 5px;">
+                                {{ active_cue.description }}
+                            </div>
+                            <div style="color: #00ff00; font-weight: bold; font-size: 0.9rem;">GO: {{ active_cue.trigger }}</div>
+                        </div>
+                    {% elif status == 'post' %}
+                        <div style="color: #ff4444; font-size: 1.5rem; font-weight: bold; z-index: 2;">END OF SHOW</div>
+                    {% else %}
+                         <div style="color: #666; font-size: 1.5rem; font-weight: bold; z-index: 2;">PRE-SHOW</div>
+                    {% endif %}
+                </div>
+
+                <div class="mini-cue-row" style="height: 20%; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; padding: 0 10px; position: relative;">
+                    {% if next_cue %}
+                        <div class="mini-global-num" style="color: #444; opacity: 1;">{{ next_global }}</div>
+                        <div style="display: flex; align-items: center; position: relative; z-index: 2; margin-left: 60px;">
+                            <span style="font-size: 0.7rem; color: #ffd700; font-weight: bold; margin-right: 5px;">NEXT:</span>
+                            <span class="dept-badge dept-{{ next_cue.department|lower }}" style="font-size: 0.8rem;">{{ next_cue.department }}{{ next_cue.number }}</span>
+                            <span style="margin-left: 8px; color: #fff; font-weight: bold; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ next_cue.description }}</span>
+                        </div>
+                    {% elif status == 'post' %}
+                        <span style="color: #666; z-index: 2;">--</span>
+                    {% else %}
+                        <span style="color: #ffd700; font-weight: bold; z-index: 2;">END</span>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+
+        <div class="hud-box side-box wing-box" style="grid-area: sr; border: 2px solid #ffd700;">
+            <div class="wing-header">SR WING</div>
+            <div class="wing-content">
+                {% for item in deck_items %}
+                    {% set s = item.state|lower %}
+                    {% if ('wing' in s and 'right' in s) or ('sr' in s and 'wing' in s) %}
+                        <div class="wing-item">{{ item.name }}</div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="hud-box main-box stage-box" style="grid-area: stage; background: #000; border: 2px solid #007bff;">
+            <div class="stage-grid">
+                <div class="grid-zone" style="grid-area: 1 / 1;">USR</div>
+                <div class="grid-zone" style="grid-area: 1 / 2;">USC</div>
+                <div class="grid-zone" style="grid-area: 1 / 3;">USL</div>
+                <div class="grid-zone" style="grid-area: 2 / 1;">SR</div>
+                <div class="grid-zone" style="grid-area: 2 / 2;">CS</div>
+                <div class="grid-zone" style="grid-area: 2 / 3;">SL</div>
+                <div class="grid-zone" style="grid-area: 3 / 1;">DSR</div>
+                <div class="grid-zone" style="grid-area: 3 / 2;">DSC</div>
+                <div class="grid-zone" style="grid-area: 3 / 3;">DSL</div>
+
+                {% for item in deck_items %}
+                    {% set s = item.state|lower|replace(" ", "") %}
+                    {% if 'wing' not in s %}
+                        {% set r = 2 %} {% set c = 2 %}
+                        {% if 'usl' in s or ('up' in s and 'left' in s) %}      {% set r = 1 %}{% set c = 3 %}
+                        {% elif 'usc' in s or ('up' in s and 'center' in s) %}  {% set r = 1 %}{% set c = 2 %}
+                        {% elif 'usr' in s or ('up' in s and 'right' in s) %}   {% set r = 1 %}{% set c = 1 %}
+                        {% elif 'dsl' in s or ('down' in s and 'left' in s) %}  {% set r = 3 %}{% set c = 3 %}
+                        {% elif 'dsc' in s or ('down' in s and 'center' in s) %}{% set r = 3 %}{% set c = 2 %}
+                        {% elif 'dsr' in s or ('down' in s and 'right' in s) %} {% set r = 3 %}{% set c = 1 %}
+                        {% elif 'sl' in s or 'stageleft' in s or 'left' in s %} {% set r = 2 %}{% set c = 3 %}
+                        {% elif 'sr' in s or 'stageright' in s or 'right' in s %}{% set r = 2 %}{% set c = 1 %}
+                        {% endif %}
+                        <div class="stage-item" style="grid-area: {{ r }} / {{ c }};">{{ item.name }}</div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="hud-box side-box wing-box" style="grid-area: sl; border: 2px solid #444;">
+            <div class="wing-header">SL WING</div>
+            <div class="wing-content">
+                {% for item in deck_items %}
+                    {% set s = item.state|lower %}
+                    {% if ('wing' in s and 'left' in s) or ('sl' in s and 'wing' in s) %}
+                        <div class="wing-item">{{ item.name }}</div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    (function() {
+        function updateSpatialClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const clockElement = document.getElementById('clock-spatial');
+            if (clockElement) clockElement.innerText = timeString;
+        }
+        
+        const clockElement = document.getElementById('clock-spatial');
+        // Only start interval if not already running, and DO NOT call immediately (server handled it)
+        if (clockElement && !clockElement.dataset.interval) {
+            const intervalId = setInterval(updateSpatialClock, 1000);
+            clockElement.dataset.interval = intervalId;
+        }
+    })();
+</script>
+
+<style>
+    /* FLOATERS */
+    .hud-float-left { position: absolute; top: 20px; left: 20px; z-index: 10; }
+    .hud-float-right { position: absolute; top: 20px; right: 20px; z-index: 10; font-size: 1.5rem; }
+    .hud-meta { font-size: 0.9rem; letter-spacing: 1px; margin-bottom: 5px; }
+    .hud-show-name { color: #eee; }
+
+    /* GENERAL FONT */
+    .hud-grid { font-family: 'Courier New', Courier, monospace; }
+
+    /* LAYOUT GRID */
+    .spatial-dashboard-grid {
+        display: grid; width: 100%; height: 100%; gap: 20px;
+        grid-template-columns: 1fr 2fr 1fr;
+        grid-template-rows: 40vh 45vh; 
+        grid-template-areas: "rail . cue-list" "sr stage sl";
+        align-content: end;
+    }
+
+    .spatial-dashboard-grid .hud-box {
+        width: 100% !important; 
+        height: 100% !important;
+    }
+    
+    /* Ensure the grid alignment is stretched */
+    .spatial-dashboard-grid {
+        justify-items: stretch;
+        align-items: stretch;
+    }
+
+    /* BOXES */
+    .rail-box, .wing-box, .stage-box, .cue-list-box {
+        display: flex; flex-direction: column;
+        border-radius: 8px; height: 100%; width: 100%;
+    }
+    .rail-box { padding: 0; border: 2px solid #555; background: #0a0a0a; }
+    .cue-list-box { padding: 0; border: 2px solid #333; background: #0a0a0a; }
+    .wing-box { padding: 10px; }
+    .stage-box { padding: 10px; }
+
+    /* MINI GLOBALS */
+    .mini-global-num {
+        position: absolute;
+        top: 50%; left: 10px; transform: translateY(-50%);
+        font-size: 3rem; font-weight: 900; line-height: 1; z-index: 1;
+        opacity: 1;
+        pointer-events: none;
+    }
+
+    /* RAIL CONTENT */
+    .rail-item { font-size: 0.8rem; padding: 2px 5px; margin-bottom: 2px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rail-item.out { color: #888; background: #222; }
+    .rail-item.in { color: #fff; background: rgba(0, 255, 0, 0.2); border: 1px solid #00ff00; font-weight: bold;}
+
+    /* WING CONTENT */
+    .wing-header { text-align: center; color: #888; font-weight: bold; border-bottom: 1px solid #333; margin-bottom: 10px; }
+    .wing-content { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+    .wing-item { background: #222; padding: 8px; text-align: center; border-radius: 4px; color: #ccc; }
+
+    /* STAGE GRID */
+    .stage-grid { display: grid; width: 100%; height: 100%; gap: 4px; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+    .grid-zone { border: 1px dashed #333; display: flex; align-items: center; justify-content: center; color: #222; font-weight: 900; font-size: 2rem; user-select: none; }
+    .stage-item {
+        background: rgba(0, 123, 255, 0.9); border: 2px solid white; border-radius: 4px;
+        width: 80px; height: 60px; display: flex; justify-content: center; align-items: center; 
+        text-align: center; font-size: 0.8rem; font-weight: bold; z-index: 10; 
+        align-self: center; justify-self: center; box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+    }
+
+    /* BADGES */
+    .dept-badge { font-size: 1rem; padding: 2px 5px; border-radius: 3px; font-weight: bold; background: #333; color: white;}
+    .dept-badge-large { padding: 4px 10px; border-radius: 6px; font-weight: bold; background: #444; color: white;}
+    .dept-lx { background-color: #0056b3; }
+    .dept-sx { background-color: #1e7e34; }
+    .dept-deck { background-color: #d35400; }
+    .dept-fly { background-color: #6f42c1; }
+</style>

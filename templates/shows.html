@@ -13,16 +13,16 @@
 </head>
 <body>
     <nav>
-        <ul><li><strong>Stage Manager App</strong></li></ul>
+        <ul><li><strong>CalCUElator</strong></li></ul>
     </nav>
 
     <main>
         <article>
             <header>Create New Show</header>
-            <form action="/shows" method="post">
+            <form action="/shows" method="post" autocomplete="off">
                 <div class="grid">
-                    <input type="text" name="name" placeholder="Show Name (e.g., 'Macbeth')" required>
-                    <input type="text" name="description" placeholder="Description (e.g., 'Fall 2026')">
+                    <input type="text" name="name" placeholder="Show Name" required>
+                    <input type="text" name="description" placeholder="Description">
                     <button type="submit">Create Show</button>
                 </div>
             </form>

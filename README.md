@@ -9,6 +9,7 @@ Currently in active development.
 ## Current Functionality
 
 * **Cue Management:** Easily create, edit, and execute cues for your show.
+* **Stage Elements:** Track the positions and movements of set pieces, props, drops, and curtains.
 * **Multi-Show Support:** Store and manage cues for multiple shows at the same time.
 
 ## Quickstart
@@ -41,11 +42,20 @@ Once the server is running, the workflow is centered around show-specific cue li
 * **Show Setup:** From the main "Lobby" view, create a new show to initialize a dedicated cue sequence.
 * **Cue Entry:** Within a show, use the entry form to add cues. Cues can be reordered by dragging rows; the sequence is updated automatically in the database.
 * **Live Operation:** * Click **GO** on a row to set it as the active cue.
-    * Use the **Spacebar** to advance through the sequence or trigger the end-of-show reset after the final cue.
-    * The **Reset** button will clear all active states without deleting the cue data.
-* **Modifications:** Use the inline edit (✏️) to modify existing cues or the delete (🗑️) button to remove them.
+    * Use the **Spacebar** or **RightArrow** to advance (**LeftArrow** to go back) through the sequence or trigger the end-of-show reset after the final cue.
+    * Press **H** to activate the HUD _(Defaults to view level 0: Command Mode)_.
+    * Use **UpArrow** and **DownArrow** to cycle between view levels _(Currently available: 0 = Command, 1 = Spatial)_.
+    * The **Reset** button will clear all active states without deleting the cue data _(Press **CTRL+R** to reset from any screen)_.
+* **Stage Elements:** Open the "Stage Inventory" to create new Stage Elements.
+* **Modifications:** Use the inline edit (✏️) to modify existing cues, the delete (🗑️) button to remove them, or the movement (📦) button to add Stage Element transitions.
+
 
 ## Changelog
+
+### v0.2.1
+**Spatial View**
+* Added Stage Elements to track the position and movement of set pieces, props, drops, and curtains.
+* Added Spatial View to HUD Mode: Use `UpArrow` and `DownArrow` to switch between HUD view levels: `0 = Command, 1 = Spatial`. 
 
 ### v0.2.0
 **Command Console**
@@ -53,6 +63,6 @@ Once the server is running, the workflow is centered around show-specific cue li
 * Added Cue columns for _Trigger_, the specific action/line that initiates the cue, and _Page Num_, the associated script page.
 
 ### v0.1.0
-**Initial Release:** 
+**Initial Release** 
 * Established the core sequencing engine with support for multi-show relational data.
 * Implemented interactive show execution and drag-and-drop reordering.

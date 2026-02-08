@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stage Manager App</title>
+    <title>CalCUElator</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -29,6 +29,17 @@
         /* Drag handle cursor */
         tbody tr { cursor: move; }
         .blue-background-class { background-color: #C8EBFB !important; }
+        
+        /* HUD Grid (Hidden by default, toggled via JS) */
+        .hud-grid {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #000;
+            color: #fff;
+            padding: 20px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
@@ -44,25 +55,25 @@
 
         <article>
             <header>Add New Cue</header>
-            <form action="/shows/{{ show.id }}/cues" method="post">
+            <form action="/shows/{{ show.id }}/cues" method="post" autocomplete="off">
                 <div class="grid">
-                    <input type="text" name="number" placeholder="Cue #" required style="flex: 0 0 100px;"> 
-                    <input type="text" name="trigger" placeholder="Trigger (e.g. 'Door Slam')" required style="flex: 0 0 70px;">
-                    <input type="text" name="page_num" placeholder="Page # in Script" required>  
                     <input type="text" name="department" placeholder="Dept" required style="flex: 0 0 100px;">
+                    <input type="text" name="number" placeholder="Cue #" required style="flex: 0 0 100px;"> 
                     <input type="text" name="description" placeholder="Description" required>
+                    <input type="text" name="trigger" placeholder="Trigger" required style="flex: 0 0 70px;">
+                    <input type="text" name="page_num" placeholder="Script Page #" required>  
                     <button type="submit">Add Cue</button>
                 </div>
             </form>
         </article>
 
-        <div style="margin-bottom: 20px; text-align: right;">
+        <div class="grid" style="margin-top: 20px;">
             <button 
-                id="reset-btn" 
+                id="reset-btn"
                 hx-post="/shows/{{ show.id }}/reset" 
-                hx-target="#cue-table-body" 
-                class="secondary outline">
-                Reset Show / End of Night
+                hx-swap="none" 
+                hx-confirm="Are you sure you want to reset the show?"
+                class="contrast outline"> Reset Show
             </button>
         </div>
 
@@ -70,10 +81,10 @@
             <thead>
                 <tr>
                     <th scope="col" style="width: 50px;">GO</th>
+                    <th scope="col" style="width: 80px;">Dept</th>
                     <th scope="col" style="width: 80px;">Cue #</th>
                     <th scope="col">Trigger</th> 
                     <th scope="col">Page Num</th> 
-                    <th scope="col" style="width: 80px;">Dept</th>
                     <th scope="col">Description</th>
                     <th scope="col">Actions</th>
                 </tr>
@@ -82,42 +93,234 @@
                 {% include 'partials/cue_rows.html' %}
             </tbody>
         </table>
-    </main>
-    <div id="hud-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: black;">
 
+        <hr style="margin: 40px 0; border-color: #333;">
+
+        <details>
+            <summary role="button" class="secondary outline">Open Stage Inventory</summary>
+            
+            <div style="margin-top: 20px; padding: 20px; background: #111; border: 1px solid #333; border-radius: 8px;">
+                <h3>Stage Elements</h3>
+                <p style="font-size: 0.9rem;">Define the physical objects (Deck) and rigged items (Fly) for your spatial map.</p>
+
+                <form hx-post="/shows/{{ show.id }}/elements" hx-target="#inventory-list" hx-swap="beforeend" autocomplete="off">
+                    <div class="grid">
+                        <input type="text" name="name" placeholder="Name" required>
+                        <select name="category" required>
+                            <option value="" disabled selected>Category...</option>
+                            <option value="Deck">Deck (Set/Furniture)</option>
+                            <option value="Fly">Fly (Rail)</option>
+                            <option value="Prop">Prop (Hand)</option>
+                            <option value="Actor">Actor (Track)</option>
+                        </select>
+                        
+                        <select name="default_state" required>
+                            <option value="" disabled selected>Starting Position...</option>
+                            <optgroup label="Wings">
+                                <option value="SL Wing">SL Wing (Off Left)</option>
+                                <option value="SR Wing">SR Wing (Off Right)</option>
+                            </optgroup>
+                            <optgroup label="Stage Areas">
+                                <option value="USR">USR (Up Right)</option>
+                                <option value="USC">USC (Up Center)</option>
+                                <option value="USL">USL (Up Left)</option>
+                                <option value="SR">SR (Stage Right)</option>
+                                <option value="CS">CS (Center Stage)</option>
+                                <option value="SL">SL (Stage Left)</option>
+                                <option value="DSR">DSR (Down Right)</option>
+                                <option value="DSC">DSC (Down Center)</option>
+                                <option value="DSL">DSL (Down Left)</option>
+                            </optgroup>
+                            <optgroup label="Fly Rail">
+                                <option value="In">In (Low)</option>
+                                <option value="Out">Out (High)</option>
+                            </optgroup>
+                        </select>
+
+                        <button type="submit" class="secondary">Add Item</button>
+                    </div>
+                </form>
+
+                <table class="striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Starting Position</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventory-list">
+                        {% for element in show.stage_elements %}
+                            {% include "partials/element_row.html" %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    </main>
+
+    <div id="hud-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: black;">
     </div>
 
     <script>
-        // Spacebar Shortcut Logic
-        document.addEventListener('keydown', function(event) {
-            if (event.code === 'Space') {
-                if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
-                
-                event.preventDefault();
-                let activeRow = document.querySelector('.active-row');
-                
-                if (activeRow) {
-                    let nextRow = activeRow.nextElementSibling;
-                    if (nextRow) {
-                        let btn = nextRow.querySelector('button');
-                        if (btn) btn.click();
-                    } else {
-                        let resetBtn = document.getElementById('reset-btn');
-                        if (resetBtn && confirm("End of Show? Resetting now.")) {
-                           resetBtn.click();
-                        }
-                    }
-                } else {
-                    let firstBtn = document.querySelector('tbody tr:first-child button');
-                    if (firstBtn) firstBtn.click();
+        // --- CONFIGURATION ---
+        const SHOW_ID = "{{ show.id }}"; 
+        let currentHudMode = 'command';
+
+        // --- PERSISTENCE ---
+        document.addEventListener("DOMContentLoaded", function() {
+            if (localStorage.getItem('hudState') === 'visible') {
+                const hud = document.getElementById('hud-overlay');
+                if (hud) {
+                    hud.style.display = 'block';
+                    currentHudMode = 'command';
+                    refreshHud();
                 }
             }
         });
 
-        // SortableJS Drag & Drop Logic
+        // --- INPUT CONTROLLER (The Driver) ---
+        document.addEventListener('keydown', function(event) {
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+
+            const hud = document.getElementById('hud-overlay');
+            const isHudVisible = hud && (window.getComputedStyle(hud).display !== 'none');
+
+            // --- GO COMMAND (Space / Right Arrow) ---
+            if (event.code === 'Space' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                // 1. Tell Engine to Advance
+                htmx.ajax('POST', `/shows/${SHOW_ID}/go`, { swap: 'none' })
+                    .then(() => syncAllViews());
+            }
+
+            // --- BACK COMMAND (Left Arrow) ---
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                // 1. Tell Engine to Reverse
+                htmx.ajax('POST', `/shows/${SHOW_ID}/back`, { swap: 'none' })
+                    .then(() => syncAllViews());
+            }
+
+            // --- HUD VIEW SWITCHING (Up/Down) ---
+            if (isHudVisible) {
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    if (currentHudMode === 'command') {
+                        currentHudMode = 'spatial';
+                        saveHudState();
+                        refreshHud();
+                    }
+                }
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    if (currentHudMode === 'spatial') {
+                        currentHudMode = 'command';
+                        saveHudState();
+                        refreshHud();
+                    }
+                }
+            }
+
+            // --- GLOBAL RESET (CTRL + R) ---
+            // Checks for Control (Windows/Linux) or Command (Mac) + 'r'
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'r') {
+                event.preventDefault(); // STOP the browser from refreshing the page
+                
+                // Safety Check
+                if (confirm("RESET SHOW? \n\nThis will deactivate all cues and return to Pre-Show.")) {
+                    htmx.ajax('POST', `/shows/${SHOW_ID}/reset`, { swap: 'none' })
+                        .then(() => {
+                            syncAllViews();
+                            // Optional: Close HUD if open, or reset it
+                            refreshHud();
+                        });
+                }
+                return; // Stop processing other keys
+            }
+        });
+
+        // --- TOGGLES (H / Escape) ---
+        document.addEventListener('keyup', function(event) {
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+
+            const hud = document.getElementById('hud-overlay');
+            
+            if (event.key === 'Escape') {
+                hud.style.display = 'none';
+                localStorage.setItem('hudState', 'hidden');
+            }
+
+            if (event.key.toLowerCase() === 'h') {
+                const isHidden = (window.getComputedStyle(hud).display === 'none');
+                if (isHidden) {
+                    hud.style.display = 'block';
+                    localStorage.setItem('hudState', 'visible');
+                    currentHudMode = 'command';
+                    refreshHud(); 
+                } else {
+                    hud.style.display = 'none';
+                    localStorage.setItem('hudState', 'hidden');
+                }
+            }
+        });
+
+        // --- THE SYNC MANAGER (Global Listener) ---
+        // This watches for ANY successful HTMX request (Reset button, Add Cue, Edit Cue)
+        // and forces the views to stay in sync.
+        document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+            // Filter: Did the request come from a cue-related action?
+            // (Reset button, Add form, Table buttons)
+            const target = evt.target;
+        
+            // If the RESET BUTTON triggered this event
+            if (target.id === 'reset-btn') {
+                syncAllViews();
+            }
+            
+            // If the TABLE BODY updated (e.g. from a manual click), ensure HUD syncs
+            if (target.id === 'cue-table-body') {
+                const hud = document.getElementById('hud-overlay');
+                if (hud && window.getComputedStyle(hud).display !== 'none') {
+                    refreshHud();
+                }
+            }
+        });
+
+        function syncAllViews() {
+            // A. REFRESH TABLE (Menu)
+            // Fix: Hit the dedicated endpoint that returns ONLY rows (No recursion!)
+            htmx.ajax('GET', `/shows/${SHOW_ID}/table_body`, { 
+                target: '#cue-table-body', 
+                swap: 'innerHTML'
+            });
+
+            // B. REFRESH HUD (Overlay)
+            const hud = document.getElementById('hud-overlay');
+            if (hud && window.getComputedStyle(hud).display !== 'none') {
+                refreshHud();
+            }
+        }
+
+        // --- HELPER FUNCTIONS ---
+        function saveHudState() {
+            localStorage.setItem('hudState', 'visible');
+            localStorage.setItem('hudMode', currentHudMode);
+        }
+
+        function refreshHud() {
+            let endpoint = (currentHudMode === 'command') 
+                ? `/shows/${SHOW_ID}/hud_content` 
+                : `/shows/${SHOW_ID}/hud/spatial`;
+            
+            htmx.ajax('GET', endpoint, '#hud-overlay');
+        }
+
+        // --- DRAG AND DROP RE-INIT ---
         htmx.onLoad(function(content) {
             var sortable = document.querySelector("#cue-table-body");
-            if (sortable) {
+            if (sortable && !sortable.sortableInitialized) {
                 new Sortable(sortable, {
                     animation: 150,
                     ghostClass: 'blue-background-class',
@@ -134,53 +337,9 @@
                         });
                     }
                 });
+                sortable.sortableInitialized = true;
             }
         });
-        // HUD Logic
-        document.addEventListener('keydown', function(event) {
-            const hud = document.getElementById('hud-overlay');
-            const isEditing = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA';
-
-            // Don't trigger HUD if the user is currently typing in an input field
-            if (isEditing) return;
-
-            // Toggle HUD with 'h'
-            if (event.key.toLowerCase() === 'h') {
-                if (hud.style.display === 'none') {
-                    hud.style.display = 'block';
-                    refreshHud();
-                } else {
-                    hud.style.display = 'none';
-                }
-            }
-
-            // NAVIGATION
-            if (hud.style.display !== 'none') {
-                if (event.key === 'ArrowRight') {
-                    // 1. Call the backend to switch state
-                    htmx.ajax('POST', '/shows/{{ show.id }}/next_cue', {
-                        target: '#hud-overlay', 
-                        swap: 'none' // Don't replace anything yet
-                    }).then(() => {
-                        // 2. Once finished, refresh the visual content
-                        refreshHud();
-                    });
-                }
-                
-                if (event.key === 'ArrowLeft') {
-                    htmx.ajax('POST', '/shows/{{ show.id }}/prev_cue', {
-                        target: '#hud-overlay', 
-                        swap: 'none'
-                    }).then(() => {
-                        refreshHud();
-                    });
-                }
-            }
-        });
-        function refreshHud() {
-            // This hits the new endpoint we created in main.py
-            htmx.ajax('GET', '/shows/{{ show.id }}/hud_content', '#hud-overlay');
-        }
     </script>
 </body>
 </html>

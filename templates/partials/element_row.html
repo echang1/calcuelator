@@ -1,0 +1,15 @@
+<tr>
+    <td>{{ element.name }}</td>
+    <td><span class="badge" style="background: #444;">{{ element.category }}</span></td>
+    <td>{{ element.default_state }}</td>
+    <td>
+        <button 
+            hx-delete="/elements/{{ element.id }}" 
+            hx-target="closest tr" 
+            hx-swap="outerHTML"
+            class="outline contrast"
+            style="padding: 5px 10px; font-size: 0.8rem;">
+            Delete
+        </button>
+    </td>
+</tr>
