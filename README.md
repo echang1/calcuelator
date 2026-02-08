@@ -66,3 +66,7 @@ Once the server is running, the workflow is centered around show-specific cue li
 **Initial Release** 
 * Established the core sequencing engine with support for multi-show relational data.
 * Implemented interactive show execution and drag-and-drop reordering.
+
+---
+
+**AI Disclosure:** This application was built with the assistance of **Generative AI (Gemini)**. While the production logic and architectural design were manually defined, AI was utilized to accelerate CSS/HUD layout development and optimize backend boilerplate.
